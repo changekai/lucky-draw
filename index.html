@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎰 Lucky Draw 樂透抽號</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #07070f;
+      --gold: #f5c518;
+      --gold2: #ff9f1c;
+      --purple: #9b5de5;
+      --pink: #f15bb5;
+      --green: #00f5d4;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --text: #f0f0f0;
+      --muted: rgba(255,255,255,0.4);
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(155,93,229,0.12) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(241,91,181,0.1) 0%, transparent 50%);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      gap: 1.5rem;
+    }
+
+    /* 標題 */
+    .title-area { text-align: center; }
+
+    h1 {
+      font-size: 2.4rem;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 20px rgba(245,197,24,0.4));
+    }
+
+    .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.3rem; letter-spacing: 2px; }
+
+    /* 球區 */
+    .balls-stage {
+      display: flex;
+      gap: 1.8rem;
+      align-items: center;
+      justify-content: center;
+      min-height: 140px;
+    }
+
+    .ball-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .ball {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      font-weight: 900;
+      letter-spacing: -1px;
+      position: relative;
+      transition: all 0.4s ease;
+      cursor: default;
+      user-select: none;
+    }
+
+    .ball.idle {
+      background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.15), rgba(255,255,255,0.03));
+      border: 2px solid var(--border);
+      color: var(--muted);
+      font-size: 1.2rem;
+    }
+
+    .ball.spinning {
+      background: radial-gradient(circle at 35% 35%, rgba(245,197,24,0.3), rgba(245,197,24,0.05));
+      border: 2px solid rgba(245,197,24,0.4);
+      animation: spin-glow 0.12s linear infinite;
+      color: rgba(255,255,255,0.6);
+    }
+
+    .ball.revealed {
+      border: none;
+      box-shadow: 0 0 40px rgba(245,197,24,0.5), 0 0 80px rgba(245,197,24,0.2);
+      animation: pop-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    .ball.ball-red    { background: radial-gradient(circle at 35% 30%, #ff6b6b, #c0392b); color: #fff; }
+    .ball.ball-blue   { background: radial-gradient(circle at 35% 30%, #74b9ff, #2980b9); color: #fff; }
+    .ball.ball-gold   { background: radial-gradient(circle at 35% 30%, #f9ca24, #f0932b); color: #2d1b00; }
+    .ball.ball-green  { background: radial-gradient(circle at 35% 30%, #55efc4, #00b894); color: #003d2e; }
+    .ball.ball-purple { background: radial-gradient(circle at 35% 30%, #a29bfe, #6c5ce7); color: #fff; }
+
+    /* 球號高光 */
+    .ball::before {
+      content: '';
+      position: absolute;
+      top: 12%; left: 20%;
+      width: 35%; height: 25%;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      filter: blur(4px);
+      pointer-events: none;
+    }
+    .ball.idle::before, .ball.spinning::before { display: none; }
+
+    .ball-rank {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    @keyframes spin-glow {
+      0%   { box-shadow: 0 0 10px rgba(245,197,24,0.3); }
+      50%  { box-shadow: 0 0 25px rgba(245,197,24,0.6); }
+      100% { box-shadow: 0 0 10px rgba(245,197,24,0.3); }
+    }
+
+    @keyframes pop-in {
+      0%   { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+      60%  { transform: scale(1.15) rotate(3deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    /* 抽獎按鈕 */
+    .draw-btn {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      border: none;
+      border-radius: 50px;
+      color: #1a0d00;
+      font-size: 1.1rem;
+      font-weight: 900;
+      letter-spacing: 3px;
+      padding: 1rem 3rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(245,197,24,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .draw-btn::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%;
+      width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .draw-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(245,197,24,0.5); }
+    .draw-btn:hover::after { left: 150%; }
+    .draw-btn:active { transform: translateY(0); }
+    .draw-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* 歷史紀錄 */
+    .history-section {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.8rem;
+    }
+
+    .history-header h2 { font-size: 0.85rem; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+
+    .clear-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .clear-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .history-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      animation: fade-in 0.3s ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .history-nums {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .mini-ball {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: bold;
+    }
+
+    .history-time { color: var(--muted); font-size: 0.75rem; }
+
+    .no-history { color: var(--muted); font-size: 0.85rem; text-align: center; padding: 1rem; }
+
+    /* 統計 */
+    .stats-bar {
+      display: flex;
+      gap: 1.5rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 0.8rem 1.5rem;
+    }
+
+    .stat { text-align: center; }
+    .stat .sv { font-size: 1.4rem; font-weight: bold; color: var(--gold); }
+    .stat .sl { font-size: 0.65rem; color: var(--muted); letter-spacing: 1px; }
+
+    /* confetti */
+    .confetti-piece {
+      position: fixed;
+      width: 10px; height: 10px;
+      border-radius: 2px;
+      animation: confetti-fall linear forwards;
+      pointer-events: none;
+      z-index: 999;
+    }
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-area">
+    <h1>🎰 LUCKY DRAW</h1>
+    <p class="subtitle">1 ~ 50 號 · 抽出 3 個幸運號碼</p>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="sv" id="total-draws">0</div>
+      <div class="sl">總抽次</div>
+    </div>
+    <div class="stat">
+      <div class="sv" id="hot-num">—</div>
+      <div class="sl">最熱號</div>
+    </div>
+    <div class="stat">
+      <div class="sv" id="cold-num">—</div>
+      <div class="sl">最冷號</div>
+    </div>
+  </div>
+
+  <div class="balls-stage" id="balls-stage">
+    <div class="ball-wrap">
+      <div class="ball idle" id="ball-0">?</div>
+      <div class="ball-rank">第 1 球</div>
+    </div>
+    <div class="ball-wrap">
+      <div class="ball idle" id="ball-1">?</div>
+      <div class="ball-rank">第 2 球</div>
+    </div>
+    <div class="ball-wrap">
+      <div class="ball idle" id="ball-2">?</div>
+      <div class="ball-rank">第 3 球</div>
+    </div>
+  </div>
+
+  <button class="draw-btn" id="draw-btn" onclick="startDraw()">✨ 開始抽號</button>
+
+  <div class="history-section">
+    <div class="history-header">
+      <h2>📋 抽號紀錄</h2>
+      <button class="clear-btn" onclick="clearHistory()">清除</button>
+    </div>
+    <div class="history-list" id="history-list">
+      <div class="no-history">尚無紀錄，點擊抽號開始！</div>
+    </div>
+  </div>
+
+<script>
+  const BALL_COLORS = ['ball-red','ball-blue','ball-gold','ball-green','ball-purple'];
+  const MINI_COLORS = [
+    { bg: 'radial-gradient(circle at 35% 30%, #ff6b6b, #c0392b)', color: '#fff' },
+    { bg: 'radial-gradient(circle at 35% 30%, #74b9ff, #2980b9)', color: '#fff' },
+    { bg: 'radial-gradient(circle at 35% 30%, #f9ca24, #f0932b)', color: '#2d1b00' },
+    { bg: 'radial-gradient(circle at 35% 30%, #55efc4, #00b894)', color: '#003d2e' },
+    { bg: 'radial-gradient(circle at 35% 30%, #a29bfe, #6c5ce7)', color: '#fff' },
+  ];
+
+  let history = JSON.parse(localStorage.getItem('lottery_history') || '[]');
+  let freqMap = JSON.parse(localStorage.getItem('lottery_freq') || '{}');
+  let totalDraws = parseInt(localStorage.getItem('lottery_total') || '0');
+  let drawing = false;
+
+  renderHistory();
+  updateStats();
+
+  function pickNumbers() {
+    const pool = Array.from({ length: 50 }, (_, i) => i + 1);
+    const picked = [];
+    for (let i = 0; i < 3; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picked.push(pool.splice(idx, 1)[0]);
+    }
+    return picked;
+  }
+
+  async function startDraw() {
+    if (drawing) return;
+    drawing = true;
+    const btn = document.getElementById('draw-btn');
+    btn.disabled = true;
+    btn.textContent = '🎲 抽號中...';
+
+    // Reset balls
+    for (let i = 0; i < 3; i++) {
+      const b = document.getElementById(`ball-${i}`);
+      b.className = 'ball idle';
+      b.textContent = '?';
+    }
+
+    // Spin animation
+    const nums = pickNumbers();
+    for (let i = 0; i < 3; i++) {
+      const b = document.getElementById(`ball-${i}`);
+      b.className = 'ball spinning';
+      b.textContent = '';
+    }
+
+    // Reveal one by one
+    for (let i = 0; i < 3; i++) {
+      await delay(700 + i * 500);
+      const b = document.getElementById(`ball-${i}`);
+      b.className = `ball revealed ${BALL_COLORS[i]}`;
+      b.textContent = nums[i];
+    }
+
+    // Confetti
+    await delay(200);
+    launchConfetti();
+
+    // Save
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    history.unshift({ nums, time: timeStr });
+    if (history.length > 30) history.pop();
+
+    nums.forEach(n => {
+      freqMap[n] = (freqMap[n] || 0) + 1;
+    });
+    totalDraws++;
+
+    localStorage.setItem('lottery_history', JSON.stringify(history));
+    localStorage.setItem('lottery_freq', JSON.stringify(freqMap));
+    localStorage.setItem('lottery_total', totalDraws.toString());
+
+    renderHistory();
+    updateStats();
+
+    btn.disabled = false;
+    btn.textContent = '✨ 再抽一次';
+    drawing = false;
+  }
+
+  function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  function launchConfetti() {
+    const colors = ['#f5c518','#ff9f1c','#f15bb5','#9b5de5','#00f5d4','#ff6b6b'];
+    for (let i = 0; i < 60; i++) {
+      setTimeout(() => {
+        const el = document.createElement('div');
+        el.className = 'confetti-piece';
+        el.style.left = Math.random() * 100 + 'vw';
+        el.style.top = '-20px';
+        el.style.background = colors[Math.floor(Math.random() * colors.length)];
+        el.style.width = (6 + Math.random() * 8) + 'px';
+        el.style.height = (6 + Math.random() * 8) + 'px';
+        el.style.animationDuration = (1.5 + Math.random() * 2) + 's';
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }, i * 30);
+    }
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('history-list');
+    if (history.length === 0) {
+      list.innerHTML = '<div class="no-history">尚無紀錄，點擊抽號開始！</div>';
+      return;
+    }
+    list.innerHTML = history.map((item, idx) => `
+      <div class="history-item">
+        <div class="history-nums">
+          ${item.nums.map((n, i) => `
+            <div class="mini-ball" style="background:${MINI_COLORS[i].bg};color:${MINI_COLORS[i].color}">${n}</div>
+          `).join('')}
+        </div>
+        <div class="history-time">${item.time}</div>
+      </div>
+    `).join('');
+  }
+
+  function updateStats() {
+    document.getElementById('total-draws').textContent = totalDraws;
+    const entries = Object.entries(freqMap);
+    if (entries.length === 0) {
+      document.getElementById('hot-num').textContent = '—';
+      document.getElementById('cold-num').textContent = '—';
+      return;
+    }
+    entries.sort((a, b) => b[1] - a[1]);
+    document.getElementById('hot-num').textContent = entries[0][0];
+    document.getElementById('cold-num').textContent = entries[entries.length - 1][0];
+  }
+
+  function clearHistory() {
+    if (!confirm('確定清除所有紀錄？')) return;
+    history = [];
+    freqMap = {};
+    totalDraws = 0;
+    localStorage.removeItem('lottery_history');
+    localStorage.removeItem('lottery_freq');
+    localStorage.removeItem('lottery_total');
+    renderHistory();
+    updateStats();
+    document.getElementById('draw-btn').textContent = '✨ 開始抽號';
+    for (let i = 0; i < 3; i++) {
+      const b = document.getElementById(`ball-${i}`);
+      b.className = 'ball idle';
+      b.textContent = '?';
+    }
+  }
+</script>
+</body>
+</html>
